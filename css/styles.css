@@ -3470,7 +3470,7 @@ textarea.form-control-lg {
   text-decoration: underline;
 }
 .btn-link:hover {
-  color: #974a2d;
+  color: #e4e2e2;
 }
 .btn-link:disabled, .btn-link.disabled {
   color: #6c757d;
@@ -11279,6 +11279,7 @@ textarea.form-control-lg {
 body {
   padding-top: 3.375rem;
   color: #6c757d;
+  linear-gratient: linear-gradient(to right, #00c6fb 0%, #005bea 100%);
 }
 
 @media (min-width: 992px) {
