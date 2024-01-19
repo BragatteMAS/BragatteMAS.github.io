@@ -1,0 +1,89 @@
+---
+title: "HLAGyn_PCRs"
+author: "BragatteMAS"
+format: 
+    dashboard:
+        orientation: rows
+editor: visual
+---
+```{r setup}
+#| echo: FALSE
+knitr::opts_chunk$set(echo = FALSE, collapse = FALSE, error = FALSE, warning = FALSE, message = FALSE, cache = FALSE)
+```
+
+```{r}
+## chama bibliotecas
+pacman::p_load(tidyverse, vroom, lubridate, plotly, polars, duckdb, RColorBrewer)
+```
+
+```{r}
+## dados
+combined <-
+  vroom("combined.tsv")
+```
+
+```{r}
+## Garantir que a coluna epiweek seja uma data
+combined$epiweek <- as.Date(combined$epiweek)
+
+## Criar a coluna month a partir da coluna epiweek e colocá-la após epiweek
+combined <- combined %>%
+  mutate(month = format(epiweek, "%Y-%m")) %>%
+  relocate(month, .after = epiweek)
+```
+
+```{r}
+# Filtrar os dados para o laboratório HLAGyn, testes PCR, e a partir de Janeiro de 2022
+combined_filtrados <- combined %>%
+  filter(lab_id == "HLAGyn", grepl("_pcr", test_kit), as.Date(date_testing) >= as.Date("2022-01-01"))
+
+# Gráfico 1: Total de Testes PCR por Semana
+dados_semanais_total <- combined_filtrados %>%
+  mutate(week = floor_date(as.Date(date_testing), "week")) %>%
+  group_by(week) %>%
+  summarise(total_pcr = n(), .groups = 'drop')
+
+plotly_total_pcr <- plot_ly(dados_semanais_total, x = ~week, y = ~total_pcr, type = 'scatter', mode = 'lines',
+                          line = list(color = 'darkblue')) %>%
+  layout(title = "Total Semanal de Testes PCR no Laboratório HLAGyn a partir de Janeiro de 2022",
+         xaxis = list(title = "Semana"),
+         yaxis = list(title = "Total de Testes PCR"))
+
+# Preparar os dados para o Gráfico 2: Testes PCR Positivos vs Negativos
+# Agrupar os resultados Pos e Neg de todas as colunas "_test_result"
+combined_long <- combined_filtrados %>%
+  select(contains("_test_result"), date_testing) %>%
+  pivot_longer(cols = contains("_test_result"), names_to = "test_type", values_to = "result") %>%
+  filter(result %in% c("Pos", "Neg"))
+
+dados_semanais_pos_neg <- combined_long %>%
+  mutate(week = floor_date(as.Date(date_testing), "week")) %>%
+  group_by(week, result) %>%
+  summarise(count_pcr = n(), .groups = 'drop')
+
+# Gráfico 2: Testes PCR Positivos vs Negativos por Semana
+plotly_pos_neg_pcr <- plot_ly() %>%
+  add_trace(data = filter(dados_semanais_pos_neg, result == "Pos"),
+            x = ~week, y = ~count_pcr, type = 'scatter', mode = 'lines',
+            line = list(color = '#577DBD'), name = 'Positivo') %>%
+  add_trace(data = filter(dados_semanais_pos_neg, result == "Neg"),
+            x = ~week, y = ~count_pcr, type = 'scatter', mode = 'lines',
+            line = list(color = '#F26F61'), name = 'Negativo') %>%
+  layout(title = "Contagem Semanal de Testes PCR Positivos vs Negativos no Laboratório HLAGyn a partir de Janeiro de 2022",
+         xaxis = list(title = "Semana"),
+         yaxis = list(title = "Contagem de Testes PCR"),
+         legend = list(x = 0.1, y = 0.9))
+```
+
+
+# Total
+
+```{r}
+plotly_total_pcr
+```
+
+# Pos Neg
+
+```{r}
+plotly_pos_neg_pcr
+```
