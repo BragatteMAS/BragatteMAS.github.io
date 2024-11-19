@@ -1,0 +1,542 @@
+---
+title: "EWMA Dashboard"
+author: "Bragatte"
+date: "2024-11-18"
+format:
+  lumo-html:
+    logo: "logo.png"                             # Optional. Path to a logo displayed above the title
+    primary-color: "#a31f37"
+    self-contained: true
+    is-particlejs-enabled: true                   # Optional: display interactive particles in the document header
+author: Bragatte, Deney e Juan
+credit: Bragatte
+date: 2024-10-16
+---
+
+```{r setup install, include=FALSE}
+
+## Setup: Instalação de pacotes necessários
+# remove.packages("Rnssp")
+# if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
+# devtools::install_github("cdcgov/Rnssp", force = TRUE)
+
+```
+
+```{r pacotes, include=FALSE}
+## Carregamento de pacotes com pacman
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(
+  Rnssp,         ## Pacote para trabalhar com dados de vigilância sindrômica
+  dplyr,         ## Manipulação de dados de maneira eficiente e legível
+  ggplot2,       ## Criação de gráficos e visualizações de dados
+  gt,            ## Formatação de tabelas para relatórios
+  leaflet,       ## Criação de mapas interativos
+  purrr,         ## Funções funcionais para manipulação de listas e vetores
+  tidyr,         ## Manipulação e organização de dados (pivot_longer, pivot_wider)
+  data.table,    ## Manipulação eficiente de grandes conjuntos de dados
+  tidyverse,     ## Conjunto de pacotes para ciência de dados
+  plotly,        ## Visualização interativa dos gráficos
+  hrbrthemes     ## Temas e paletas de cores para gráficos
+)
+```
+
+## Seleção de Colunas
+
+```{r}
+# Opção para selecionar quais colunas usar
+colunas_opcao <- "sfr"  # Pode ser "sfr" = total, "sfr1" = OPAS ou "sfr2" = ITpS
+
+# Ajuste da seleção das colunas baseado na escolha
+if (colunas_opcao == "sfr") {
+  colunas <- c("sfr", "sfne", "sfe", "sd", "sfih", "sn")
+} else if (colunas_opcao == "sfr1") {
+  colunas <- c("sfr1", "sfne1", "sfe1", "sd1", "sfih1", "sn1")
+} else if (colunas_opcao == "sfr2") {
+  colunas <- c("sfr2", "sfne2", "sfe2", "sd2", "sfih2", "sn2")
+}
+```
+
+## Parceiro
+
+```{r}
+#| column: screen
+#| out-width: 100%
+
+# Fazer um mapa com zoom interativo e marcadores de cores diferentes
+leaflet() %>%
+  addTiles() %>% # Adicionar tiles padrão do OpenStreetMap
+  addMarkers(lng = -38.5014, lat = -12.9714, popup = "Salvador, Bahia")
+```
+
+## Carregamento dos Dados
+
+```{r}
+file_path <- "/Users/bragatte/Documents/GitHub/SAVEd_syndromic/data/BA_Salvador/processed/BA_FULL.csv"
+BA_FULL <- read.csv(file_path)
+
+# Selecionando colunas relevantes
+dt_atendimento <- as.Date(BA_FULL$dt_atendimento)
+sfr <- BA_FULL[[colunas[1]]] # Síndrome Febril Respiratória
+sfne <- BA_FULL[[colunas[2]]] # Síndrome Febril Não Esclarecida
+sfe <- BA_FULL[[colunas[3]]] # Síndrome Febril Exantemática
+sd <- BA_FULL[[colunas[4]]] # Síndrome Diarreica
+sfih <- BA_FULL[[colunas[5]]] # Síndrome Febril Icterohemorrágica
+sn <- BA_FULL[[colunas[6]]] # Síndrome Neurológica
+
+# Criação do dataset selecionado
+syndrom_selected <- data.frame(dt_atendimento, sfr, sfne, sfe, sd, sfih, sn)
+```
+
+## Gráficos de Jitter por Síndrome
+
+::: {.panel-tabset .nav-pills}
+### Síndrome: SFR
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sfr, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#1f78b4')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SFR",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+
+### Síndrome: SFNE
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sfne, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#33a02c')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SFNE",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+
+### Síndrome: SFE
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sfe, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#e31a1c')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SFE",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+
+### Síndrome: SD
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sd, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#ff7f00')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SD",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+
+### Síndrome: SFIH
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sfih, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#6a3d9a')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SFIH",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+
+### Síndrome: SN
+
+```{r}
+plot_ly(data = syndrom_selected, x = ~factor(dt_atendimento), y = ~sn, type = 'box', jitter = 0.4, pointpos = -1.8, boxpoints = 'all', marker = list(color = '#b15928')) %>%
+  layout(title = "Boxplot com gráfico de jitter dos Casos por Dia para Síndrome SN",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         legend = list(title = list(text = "Legenda")))
+```
+:::
+
+## Estatísticas Básicas das Síndromes
+
+```{r}
+# Estatísticas Básicas com GT
+summary_stats <- syndrom_selected %>% 
+  summarise(across(sfr:sn, list(
+    mean = ~mean(.x, na.rm = TRUE),
+    sd = ~sd(.x, na.rm = TRUE),
+    min = ~min(.x, na.rm = TRUE),
+    max = ~max(.x, na.rm = TRUE),
+    median = ~median(.x, na.rm = TRUE)
+  ), .names = "{.col}_{.fn}"))
+
+# Apresentar as estatísticas em formato de tabela usando GT
+summary_stats_long <- summary_stats %>% 
+  pivot_longer(cols = everything(), names_to = c("syndrome", "statistic"), names_sep = "_", values_to = "value") %>%
+  pivot_wider(names_from = "statistic", values_from = "value")
+
+summary_table <- gt(summary_stats_long) %>%
+  tab_header(
+    title = "Estatísticas Básicas para Síndromes"
+  ) %>%
+  cols_label(
+    syndrome = "Síndrome",
+    mean = "Média",
+    sd = "Desvio Padrão",
+    min = "Mínimo",
+    max = "Máximo",
+    median = "Mediana"
+  )
+
+summary_table
+```
+
+::: {.panel-tabset .nav-pills}
+## Gráficos de Média
+
+```{r}
+# Gráfico de barras da média para cada síndrome
+plot_ly(summary_stats_long, x = ~syndrome, y = ~mean, type = 'bar', name = 'Média', marker = list(color = '#1f78b4')) |> 
+  layout(title = "Média de Cada Síndrome",
+         xaxis = list(title = "Síndrome"),
+         yaxis = list(title = "Valor Médio")
+)
+```
+
+## Gráfico Desvio Padrão
+
+```{r}
+# Gráfico de barras do desvio padrão para cada síndrome
+plot_ly(summary_stats_long, x = ~syndrome, y = ~sd, type = 'bar', name = 'Desvio Padrão', marker = list(color = '#33a02c')) %>%
+  layout(title = "Desvio Padrão de Cada Síndrome",
+         xaxis = list(title = "Síndrome"),
+         yaxis = list(title = "Desvio Padrão"))
+```
+:::
+
+## Gráfico de Barras dos Percentuais de Cada Síndrome
+
+```{r}
+plot_ly(syndrom_selected, x = ~dt_atendimento, y = ~sfr, type = 'bar', name = 'SFR', marker = list(color = '#1f78b4')) %>%
+  add_trace(y = ~sfne, name = 'SFNE', marker = list(color = '#33a02c')) %>%
+  add_trace(y = ~sfe, name = 'SFE', marker = list(color = '#e31a1c')) %>%
+  add_trace(y = ~sd, name = 'SD', marker = list(color = '#ff7f00')) %>%
+  add_trace(y = ~sfih, name = 'SFIH', marker = list(color = '#6a3d9a')) %>%
+  add_trace(y = ~sn, name = 'SN', marker = list(color = '#b15928')) %>%
+  layout(title = "Percentual de Cada Síndrome por Data de Atendimento",
+         xaxis = list(title = "Data de Atendimento"),
+         yaxis = list(title = "Número de Casos"),
+         barmode = 'stack')
+```
+
+# Carrega o pacote necessário para EWMA
+
+```{r}
+# Aplicação do modelo EWMA para cada síndrome # B=14 ou seja 14 dias
+syndrom_ewma <- syndrom_selected %>%
+  mutate(
+    sfr_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sfr, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert,
+    sfne_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sfne, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert,
+    sfe_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sfe, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert,
+    sd_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sd, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert,
+    sfih_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sfih, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert,
+    sn_ewma = alert_ewma(syndrom_selected, t = dt_atendimento, y = sn, B = 14, g = 2, w1 = 0.4, w2 = 0.9)$alert
+  )
+```
+
+## Visualização dos Resultados com EWMA original
+
+## Gráficos EWMA Separados
+
+### Gráfico de alertas EWMA para SFR
+
+```{r, fig.align='center'}
+syndrom_ewma |>
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sfr), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sfr_ewma == "blue"),
+    aes(x = dt_atendimento, y = sfr),
+    color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfr_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sfr),
+    color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfr_ewma == "red"),
+    aes(x = dt_atendimento, y = sfr),
+    color = "red"
+  ) +
+  theme_bw() +
+  labs(x = "Data de Atendimento", y = "Contagem SFR", title = "EWMA Alertas - SFR")
+
+```
+
+### Gráfico de alertas EWMA para SFNE
+
+```{r, fig.align='center'}
+syndrom_ewma  |> 
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sfne), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sfne_ewma == "blue"),
+    aes(x = dt_atendimento, y = sfne), color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfne_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sfne), color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfne_ewma == "red"),
+    aes(x = dt_atendimento, y = sfne), color = "red"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Data de Atendimento",
+    y = "Contagem SFNE",
+    title = "EWMA Alertas - SFNE"
+  )
+```
+
+### Gráfico de alertas EWMA para SFE
+
+```{r, fig.align='center'}
+syndrom_ewma %>%
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sfe), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sfe_ewma == "blue"),
+    aes(x = dt_atendimento, y = sfe), color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfe_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sfe), color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfe_ewma == "red"),
+    aes(x = dt_atendimento, y = sfe), color = "red"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Data de Atendimento",
+    y = "Contagem SFE",
+    title = "EWMA Alertas - SFE"
+  )
+```
+
+### Gráfico de alertas EWMA para SD
+
+```{r, fig.align='center'}
+syndrom_ewma %>%
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sd), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sd_ewma == "blue"),
+    aes(x = dt_atendimento, y = sd), color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sd_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sd), color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sd_ewma == "red"),
+    aes(x = dt_atendimento, y = sd), color = "red"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Data de Atendimento",
+    y = "Contagem SD",
+    title = "EWMA Alertas - SD"
+  )
+```
+
+### Gráfico de alertas EWMA para SFIH
+
+```{r, fig.align='center'}
+syndrom_ewma %>%
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sfih), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sfih_ewma == "blue"),
+    aes(x = dt_atendimento, y = sfih), color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfih_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sfih), color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sfih_ewma == "red"),
+    aes(x = dt_atendimento, y = sfih), color = "red"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Data de Atendimento",
+    y = "Contagem SFIH",
+    title = "EWMA Alertas - SFIH"
+  )
+```
+
+### Gráfico de alertas EWMA para SN
+
+```{r, fig.align='center'}
+syndrom_ewma %>%
+  ggplot() +
+  geom_line(aes(x = dt_atendimento, y = sn), color = "grey70") +
+  geom_point(
+    data = subset(syndrom_ewma, sn_ewma == "blue"),
+    aes(x = dt_atendimento, y = sn), color = "navy"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sn_ewma == "yellow"),
+    aes(x = dt_atendimento, y = sn), color = "yellow"
+  ) +
+  geom_point(
+    data = subset(syndrom_ewma, sn_ewma == "red"),
+    aes(x = dt_atendimento, y = sn), color = "red"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Data de Atendimento",
+    y = "Contagem SN",
+    title = "EWMA Alertas - SN"
+  )
+```
+
+Interativo e separado por sindrome
+
+```{r}
+# Função para gerar gráfico EWMA com alertas usando plotly
+gerar_grafico_ewma_plotly <- function(data, sindrome, sindrome_ewma, titulo) {
+  # Convertendo os valores dos alertas para fatores
+  data[[sindrome_ewma]] <- factor(data[[sindrome_ewma]], levels = c("grey", "blue", "yellow", "red"))
+
+  plot_ly(data, x = ~dt_atendimento, y = as.formula(paste0("~", sindrome)), type = 'scatter', mode = 'lines', 
+          line = list(color = 'grey'), name = 'Evolução') %>%
+    add_trace(
+      y = as.formula(paste0("~", sindrome)),
+      mode = 'markers',
+      marker = list(
+        color = ~get(sindrome_ewma),
+        colorscale = list(c(0, 'grey'), c(0.25, '#1f78b4'), c(0.5, '#ffae42'), c(0.75, '#e31a1c')),
+        size = 5
+      ),
+      name = 'Alerta'
+    ) %>%
+    layout(
+      title = titulo,
+      xaxis = list(title = "Data de Atendimento"),
+      yaxis = list(title = "Número de Casos"),
+      legend = list(title = list(text = 'Alerta'))
+    )
+}
+```
+
+```{r}
+# Gerando gráficos para cada síndrome
+plot_sfr <- gerar_grafico_ewma_plotly(syndrom_ewma, "sfr", "sfr_ewma", "Evolução da Síndrome SFR com Alertas de EWMA")
+plot_sfne <- gerar_grafico_ewma_plotly(syndrom_ewma, "sfne", "sfne_ewma", "Evolução da Síndrome SFNE com Alertas de EWMA")
+plot_sfe <- gerar_grafico_ewma_plotly(syndrom_ewma, "sfe", "sfe_ewma", "Evolução da Síndrome SFE com Alertas de EWMA")
+plot_sd <- gerar_grafico_ewma_plotly(syndrom_ewma, "sd", "sd_ewma", "Evolução da Síndrome SD com Alertas de EWMA")
+plot_sfih <- gerar_grafico_ewma_plotly(syndrom_ewma, "sfih", "sfih_ewma", "Evolução da Síndrome SFIH com Alertas de EWMA")
+plot_sn <- gerar_grafico_ewma_plotly(syndrom_ewma, "sn", "sn_ewma", "Evolução da Síndrome SN com Alertas de EWMA")
+```
+
+## Visualizando os Gráficos com Interatividade
+
+::: {.panel-tabset .nav-pills}
+## EWMA SFR
+
+```{r, echo=FALSE}
+plot_sfr
+```
+
+## EWMA SFNE
+
+```{r, echo=FALSE}
+plot_sfne
+```
+
+## EWMA SFE
+
+```{r, echo=FALSE}
+plot_sfe
+```
+
+## EWMA SD
+
+```{r, echo=FALSE}
+plot_sd
+```
+
+## EWMA SFIH
+
+```{r, echo=FALSE}
+plot_sfih
+```
+
+## EWMA SN
+
+```{r, echo=FALSE}
+plot_sn
+```
+:::
+
+O modelo EWMA foi aplicado para identificar padrões e anomalias nas séries temporais das diferentes síndromes. A visualização dos resultados permite analisar a evolução e detectar possíveis eventos anômalos ao longo do tempo.
+
+# Comparando vigilância sindrômica com técnicas de REGEX e LLMs
+
+### Média Móvel 7 dias
+
+```{r}
+# Cálculo das médias móveis de 7 dias para cada síndrome
+syndrom_selected <- syndrom_selected %>%
+  mutate(
+    sfr_7d = zoo::rollmean(sfr, k = 7, fill = NA, align = "right"),
+    sfne_7d = zoo::rollmean(sfne, k = 7, fill = NA, align = "right"),
+    sfe_7d = zoo::rollmean(sfe, k = 7, fill = NA, align = "right"),
+    sd_7d = zoo::rollmean(sd, k = 7, fill = NA, align = "right"),
+    sfih_7d = zoo::rollmean(sfih, k = 7, fill = NA, align = "right"),
+    sn_7d = zoo::rollmean(sn, k = 7, fill = NA, align = "right")
+  )
+
+# Gráfico interativo com Plotly para visualizar as médias móveis de 7 dias
+plot_ly(data = syndrom_selected, x = ~dt_atendimento) %>%
+  add_lines(y = ~sfr_7d, name = "SFR - Média Móvel 7 dias", line = list(color = '#1f78b4')) %>%
+  add_lines(y = ~sfne_7d, name = "SFNE - Média Móvel 7 dias", line = list(color = '#33a02c')) %>%
+  add_lines(y = ~sfe_7d, name = "SFE - Média Móvel 7 dias", line = list(color = '#e31a1c')) %>%
+  add_lines(y = ~sd_7d, name = "SD - Média Móvel 7 dias", line = list(color = '#ff7f00')) %>%
+  add_lines(y = ~sfih_7d, name = "SFIH - Média Móvel 7 dias", line = list(color = '#6a3d9a')) %>%
+  add_lines(y = ~sn_7d, name = "SN - Média Móvel 7 dias", line = list(color = '#b15928')) %>%
+  layout(
+    title = "Médias Móveis de 7 Dias para Todas as Síndromes",
+    xaxis = list(title = "Data de Atendimento"),
+    yaxis = list(title = "Número de Casos (Média Móvel 7 Dias)"),
+    legend = list(title = list(text = "Síndrome"))
+  )
+```
+
+```{r}
+# Carregar os dados de LLM
+llm_ssa <- vroom::vroom("/Users/bragatte/Documents/GitHub/SAVEd_syndromic/llm_ssa.csv")
+
+#glimpse(llm_ssa)
+```
+
+```{r}
+# Converter `DATA ENTRADA` para o formato Date
+llm_ssa <- llm_ssa %>%
+  mutate(`DATA ENTRADA` = as.Date(`DATA ENTRADA`, format = "%Y-%m-%d"))
+
+# Separar as síndromes na coluna `RESULTS_QWEN_14B` para que cada síndrome tenha uma linha por data
+llm_syndromes <- llm_ssa %>%
+  separate_rows(RESULTS_QWEN_14B, sep = ",") %>%
+  mutate(RESULTS_QWEN_14B = str_trim(RESULTS_QWEN_14B, side = "both"))
+
+# Contar os casos diários para cada síndrome
+casos_diarios_llm <- llm_syndromes %>%
+  group_by(`DATA ENTRADA`, RESULTS_QWEN_14B) %>%
+  summarise(casos = n(), .groups = "drop")
+
+# Calcular a média móvel de 7 dias para cada síndrome
+casos_media_movel_llm <- casos_diarios_llm %>%
+  group_by(RESULTS_QWEN_14B) %>%
+  arrange(`DATA ENTRADA`) %>%
+  mutate(media_movel_7d = zoo::rollmean(casos, k = 7, fill = NA, align = "right"))
+```
