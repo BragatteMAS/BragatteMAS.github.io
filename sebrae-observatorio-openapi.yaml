@@ -1,0 +1,523 @@
+openapi: 3.1.0
+info:
+  title: Observatório Sebrae - API de Dados
+  description: |
+    API pública do Observatório Sebrae, baseada no engine [Tesseract OLAP](https://github.com/tesseract-olap/tesseract) v0.14.12.
+
+    Permite consultar dados multidimensionais (OLAP) sobre trabalho, empresas, educação, crédito e turismo no Brasil,
+    com recortes geográficos detalhados (país → região → estado → mesorregião → microrregião → município).
+
+    **Sem autenticação necessária** — API aberta.
+
+    ## Cubes disponíveis
+
+    | Cube | Tema | Fonte |
+    |------|------|-------|
+    | `RAIS_workers` | Trabalhadores formais | RAIS/MTE |
+    | `RAIS_establishment` | Estabelecimentos empresariais | RAIS/MTE |
+    | `RF` | Cadastro de empresas | Receita Federal |
+    | `credito_bacen_valores` | Operações de crédito PJ | BACEN |
+    | `INEP_enem` | Desempenho ENEM | INEP |
+    | `INEP_censo` | Censo ensino superior | INEP |
+    | `INEP_Censo_Ed_Basica` | Censo educação básica | INEP |
+    | `INEP_Censo_Taxas_Basica` | Taxas de rendimento escolar | INEP |
+    | `INEP_IDEB_Municipio` | IDEB municipal | INEP |
+    | `MTUR_Chegadas_Internacionais` | Chegadas internacionais | Min. Turismo |
+    | `MTUR_Mapa_Turismo` | Mapa do turismo | Min. Turismo |
+
+    ## Como consultar
+
+    1. Liste os cubes em `GET /cubes`
+    2. Veja dimensões e medidas de um cube em `GET /cubes/{cube_name}`
+    3. Consulte dados em `GET /data.jsonrecords` ou `GET /data.csv`
+    4. Use filtros por dimensão como query parameters (ex: `State=13`)
+
+  version: 1.0.0
+  contact:
+    name: Observatório Sebrae
+    url: https://observatorio.sebrae.com.br
+
+servers:
+  - url: https://api-observatorio.sebrae.com.br
+    description: Produção
+
+paths:
+  /:
+    get:
+      operationId: getStatus
+      summary: Health check
+      description: Retorna status da API e versão do Tesseract.
+      responses:
+        "200":
+          description: API operacional
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  tesseract_version:
+                    type: string
+                    example: "0.14.12"
+
+  /cubes:
+    get:
+      operationId: listCubes
+      summary: Listar cubes disponíveis
+      description: Retorna metadados de todos os cubes OLAP, incluindo dimensões, medidas e hierarquias.
+      responses:
+        "200":
+          description: Lista de cubes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cubes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CubeMetadata"
+
+  /cubes/{cube_name}:
+    get:
+      operationId: getCube
+      summary: Metadados de um cube
+      description: Retorna dimensões, hierarquias, níveis e medidas de um cube específico.
+      parameters:
+        - name: cube_name
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CubeName"
+      responses:
+        "200":
+          description: Metadados do cube
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CubeMetadata"
+        "404":
+          description: Cube não encontrado
+
+  /data.jsonrecords:
+    get:
+      operationId: queryJsonRecords
+      summary: Consultar dados (JSON)
+      description: |
+        Endpoint principal de consulta. Retorna dados como array de registros JSON.
+
+        **Filtros por dimensão** são passados como query parameters adicionais
+        usando o nome do nível da dimensão (ex: `State=13`, `Year=2024`).
+        Múltiplos valores são separados por vírgula (ex: `Grande+Sector=1,2,3`).
+
+        **Exemplo:**
+        ```
+        GET /data.jsonrecords?cube=RAIS_workers&drilldowns=Mesoregion,Year&measures=Workers&State=13&Year=2024&parents=true
+        ```
+      parameters:
+        - $ref: "#/components/parameters/cube"
+        - $ref: "#/components/parameters/drilldowns"
+        - $ref: "#/components/parameters/measures"
+        - $ref: "#/components/parameters/parents"
+        - $ref: "#/components/parameters/exclude"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/locale"
+      responses:
+        "200":
+          description: Dados retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRecordsResponse"
+        "400":
+          description: Parâmetros inválidos
+
+  /data.csv:
+    get:
+      operationId: queryCsv
+      summary: Consultar dados (CSV)
+      description: |
+        Mesma lógica de `GET /data.jsonrecords`, mas retorna os dados em formato CSV.
+        Aceita os mesmos parâmetros.
+      parameters:
+        - $ref: "#/components/parameters/cube"
+        - $ref: "#/components/parameters/drilldowns"
+        - $ref: "#/components/parameters/measures"
+        - $ref: "#/components/parameters/parents"
+        - $ref: "#/components/parameters/exclude"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/locale"
+      responses:
+        "200":
+          description: Dados em CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /members:
+    get:
+      operationId: getMembers
+      summary: Listar membros de uma dimensão
+      description: |
+        Retorna os membros (valores possíveis) de um nível de dimensão.
+
+        **Exemplo:**
+        ```
+        GET /members?cube=RAIS_workers&level=State
+        ```
+      parameters:
+        - $ref: "#/components/parameters/cube"
+        - name: level
+          in: query
+          required: true
+          description: Nome do nível da dimensão para listar membros.
+          schema:
+            type: string
+          examples:
+            state:
+              value: State
+              summary: Estados brasileiros
+            year:
+              value: Year
+              summary: Anos disponíveis
+            municipality:
+              value: Municipality
+              summary: Municípios
+            mesoregion:
+              value: Mesoregion
+              summary: Mesorregiões
+        - $ref: "#/components/parameters/locale"
+      responses:
+        "200":
+          description: Lista de membros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ID:
+                          oneOf:
+                            - type: integer
+                            - type: string
+                        Label:
+                          type: string
+
+components:
+  parameters:
+    cube:
+      name: cube
+      in: query
+      required: true
+      description: Nome do cube OLAP a consultar.
+      schema:
+        $ref: "#/components/schemas/CubeName"
+
+    drilldowns:
+      name: drilldowns
+      in: query
+      required: true
+      description: |
+        Níveis de dimensão para desagregar os dados, separados por vírgula.
+        Usa o nome do nível (ex: `Municipality`, `Year`, `State`).
+      schema:
+        type: string
+      examples:
+        geographic:
+          value: State,Year
+          summary: Por estado e ano
+        detailed:
+          value: Municipality,Year,Establishment Size
+          summary: Por município, ano e porte
+
+    measures:
+      name: measures
+      in: query
+      required: true
+      description: Medidas a retornar, separadas por vírgula.
+      schema:
+        type: string
+      examples:
+        workers:
+          value: Workers
+          summary: Contagem de trabalhadores
+        salary:
+          value: Workers,Salary Mass,Remuneration December Nominal
+          summary: Trabalhadores com dados salariais
+
+    parents:
+      name: parents
+      in: query
+      required: false
+      description: |
+        Se `true`, inclui todos os níveis hierárquicos acima do drilldown
+        (ex: drilldown por Municipality inclui Microregion, Mesoregion, State, Region, Country).
+      schema:
+        type: boolean
+        default: false
+
+    exclude:
+      name: exclude
+      in: query
+      required: false
+      description: |
+        Excluir valores específicos de uma dimensão.
+        Formato: `Dimension:value` (ex: `Mesoregion:99` exclui "não identificado").
+      schema:
+        type: string
+      example: "Mesoregion:99"
+
+    limit:
+      name: q
+      in: query
+      required: false
+      description: Limitar o número de registros retornados.
+      schema:
+        type: integer
+        minimum: 1
+
+    sort:
+      name: sort
+      in: query
+      required: false
+      description: |
+        Ordenar resultados por uma medida.
+        Formato: `measure.asc` ou `measure.desc`.
+      schema:
+        type: string
+      example: "Workers.desc"
+
+    locale:
+      name: locale
+      in: query
+      required: false
+      description: |
+        Idioma dos labels retornados. Valores comuns: `pt` (português), `en` (inglês).
+      schema:
+        type: string
+        enum: [pt, en]
+
+  schemas:
+    CubeName:
+      type: string
+      description: Nome do cube OLAP.
+      enum:
+        - RAIS_workers
+        - RAIS_establishment
+        - RF
+        - credito_bacen_valores
+        - INEP_enem
+        - INEP_censo
+        - INEP_Censo_Ed_Basica
+        - INEP_Censo_Taxas_Basica
+        - INEP_IDEB_Municipio
+        - MTUR_Chegadas_Internacionais
+        - MTUR_Mapa_Turismo
+
+    CubeMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+        caption:
+          type: string
+        description:
+          type: string
+        dimensions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dimension"
+        measures:
+          type: array
+          items:
+            $ref: "#/components/schemas/Measure"
+        source:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+
+    Dimension:
+      type: object
+      properties:
+        name:
+          type: string
+        caption:
+          type: string
+        hierarchies:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    caption:
+                      type: string
+
+    Measure:
+      type: object
+      properties:
+        name:
+          type: string
+        caption:
+          type: string
+        aggregator:
+          type: string
+          enum: [sum, avg, count]
+
+    JsonRecordsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          description: Array de registros. Cada registro contém IDs e nomes dos drilldowns + valores das medidas.
+          items:
+            type: object
+            additionalProperties: true
+            description: |
+              Campos dinâmicos baseados nos drilldowns e measures solicitados.
+              Para cada nível de drilldown, retorna `{Level} ID` (inteiro) e `{Level}` (nome).
+              Se `parents=true`, inclui os níveis hierárquicos superiores.
+            example:
+              Country ID: 0
+              Country: Brasil
+              Region ID: 1
+              Region: Norte
+              State ID: 13
+              State: Amazonas
+              Mesoregion ID: 1302
+              Mesoregion: Centro Amazonense
+              Year: 2024
+              Workers: 456789
+        source:
+          type: array
+          description: Metadados da fonte de dados.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              measures:
+                type: string
+              annotations:
+                type: object
+
+    # --- Schemas por Cube (dimensões e medidas disponíveis) ---
+
+    RAIS_workers_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Active worker indicator, Year, Sex, Range Age, Range min remuneration december,
+        Range avg min remuneration, Education level, Ethnicity, Disability Indicator, Type Disability,
+        Month Admission, Month Absence, Reason absence work, Establishment Size, Aggregated Company Size,
+        Type Establishment, Commercial Companies Indicator, Geography*, Journeys*, Industry*, Occupation
+
+        **Medidas:** Workers (sum), Age (avg), Salary Mass (sum), Remuneration December Nominal (avg),
+        Remuneration December Min (avg), Remuneration Avg Nominal (avg), Remuneration Avg Min (avg)
+
+        *Geography:* Country → Region → State → Mesoregion → Microregion → Municipality
+        *Industry:* Grande Sector → Section → Division → Group → Class → Subclass
+
+    RAIS_establishment_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Establishment Size, Aggregated Company Size, Activity Indicator,
+        Simple Indicator, Type Establishment, Negative RAIS, Commercial Companies Indicator,
+        Geography*, Journeys*, Industry*, Legal Nature
+
+        **Medidas:** Establishments (sum), Number workers (sum), Number workers CLT (sum),
+        Number workers state establishments (sum)
+
+    RF_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Geography*, Journeys*, Industry*, Legal Nature, Main Establishment,
+        Company Size (RFB), Company Size Sebrae, Simples Nacional Indicator, MEI Indicator,
+        Registration Status, Status Date, Open Activity Date, Sebrae Client Indicator,
+        Active Debt Indicator, COMEX Enablement Modality, Sebrae Target Audience,
+        Female Entrepreneurship, Senior Entrepreneurship, + indicadores PetroSupply/CAF/Energia
+
+        **Medidas:** Establishments (sum)
+
+    credito_bacen_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Time Quarter (Year/Quarter), Dim Geo State (Country → Region → State),
+        Dim Porte BNDES, Dim Tipo Recurso, Dim Modalidade Credito
+
+        **Medidas:** Valor Total Concessao (sum), Quantidade Total de Operacoes (sum),
+        Taxa Media de Inadimplencia (avg), Taxa Media de Juros Percentual Anual (avg)
+
+    INEP_enem_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Sex, Administration, Location, Geography*, Journeys*
+
+        **Medidas:** Natural Sciences (avg), Social Sciences (avg), Languages (avg),
+        Math (avg), Students (sum)
+
+    INEP_censo_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Sex, Degree, Administrative Category, Geography*, Journeys*,
+        Institution, Career (OCDE General → OCDE Specifies → OCDE Detailed → Career Name)
+
+        **Medidas:** Admissions (sum), Enrollments (sum), Graduates (sum)
+
+    INEP_Censo_Ed_Basica_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, School, Administrative Type, Location, Operation Status,
+        Education Level, Geography*, Journeys*
+
+        **Medidas:** Enrollments (sum), Teachers (sum), Classes (sum)
+
+    INEP_Censo_Taxas_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Administrative Type, Location, Education Level, Geography*, Journeys*
+
+        **Medidas:** Approval Rate (avg), Failure Rate (avg), Dropout Rate (avg),
+        Age-Grade Distortion Rate (avg)
+
+    INEP_IDEB_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Administrative Type, Education Level, Geography*, Journeys*
+
+        **Medidas:** IDEB Index (avg)
+
+    MTUR_Chegadas_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Time (Year/Month), Dim Geo State (Country → Region → State),
+        Dim MTUR Countries (Continent → Country), Way ID
+
+        **Medidas:** Total de Chegadas (sum)
+
+    MTUR_Mapa_dimensions:
+      type: object
+      description: |
+        **Dimensões:** Year, Dim MTUR Turistic Region, Cluster, Geography*, Journeys*
+
+        **Medidas:** Quantidade de Empregos (sum), Quantidade de Estabelecimentos (sum),
+        Quantidade Estimada de Visitas Internacionais (sum),
+        Quantidade Estimada de Visitas Nacionais (sum), Arrecadação (sum)
