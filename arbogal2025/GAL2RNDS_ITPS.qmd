@@ -3,7 +3,8 @@ title: "Avaliação informacional de amostra de Arboviroses do Gal"
 subtitle: "Este documento é baseado nos dados de vigilância laboratorial de arboviroses"
 format:
   lumo-html:
-    logo: "logo.png"                             # Optional. Path to a logo displayed above the title
+    output-file: index.html
+    logo: "logo.png"
     primary-color: "#a31f37"
     self-contained: true
     is-particlejs-enabled: true                   # Optional: display interactive particles in the document header
