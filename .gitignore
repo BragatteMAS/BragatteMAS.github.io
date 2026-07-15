@@ -3,3 +3,8 @@
 .DS_Store
 .DS_Store
 .Rproj.user
+
+## Artefatos de sessões Claude Code — projeto portfolio (mar/2026) vive nas branches worktree-agent-* e speckit-fresh
+.claude/
+## Planos de plugin (superpowers), não é conteúdo do site
+docs/superpowers/
